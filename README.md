@@ -21,15 +21,15 @@ This project contains three interconnected n8n workflows designed to automatical
 │                    Lead Re-engagement System                        │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐  │
-│  │   Triggers   │    │   Actions    │    │    Integrations      │  │
-│  ├──────────────┤    ├──────────────┤    ├──────────────────────┤  │
-│  │ • Manual     │───▶│ • Filter     │───▶│ • Twilio (WhatsApp)  │  │
-│  │ • Weekly     │    │   Leads      │    │ • Google Sheets      │  │
-│  │ • Webhook    │    │ • Send       │    │ • Slack              │  │
-│  │ • Daily 6PM  │    │   Messages   │    │ • Google Gemini AI   │  │
-│  │ • Error      │    │ • Track      │    │                      │  │
-│  └──────────────┘    │   Progress   │    └──────────────────────┘  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
+│  │   Triggers   │    │   Actions    │    │    Integrations      │   │
+│  ├──────────────┤    ├──────────────┤    ├──────────────────────┤   │
+│  │ • Manual     │───▶│ • Filter     │───▶│ • Twilio (WhatsApp)  │   │
+│  │ • Weekly     │    │   Leads      │    │ • Google Sheets      │   │
+│  │ • Webhook    │    │ • Send       │    │ • Slack              │   │
+│  │ • Daily 6PM  │    │   Messages   │    │ • Google Gemini AI   │   │ 
+│  │ • Error      │    │ • Track      │    │                      │   │
+│  └──────────────┘    │   Progress   │    └──────────────────────┘   │
 │                      └──────────────┘                               │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
