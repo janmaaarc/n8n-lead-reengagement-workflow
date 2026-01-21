@@ -1,0 +1,1476 @@
+{
+  "workflows": [
+    {
+      "name": "WhatsApp Lead Re-engagement Drip Campaign",
+      "description": "Automated 5-day drip campaign to re-engage leads inactive for 90+ days",
+      "nodes": [
+        {
+          "parameters": {
+            "content": "## WHATSAPP LEAD RE-ENGAGEMENT WORKFLOW\n\n**Purpose:** Automated 5-day drip campaign to re-engage leads inactive for 90+ days\n\n**Sequence:**\n- Day 1: Initial outreach\n- Day 3: First follow-up\n- Day 5: Final follow-up\n- Day 7: Mark as No Response\n\n**Triggers:**\n- Manual (testing)\n- Weekly: Monday 9AM\n- Webhook: POST /lead-reengagement-whatsapp\n\n**Twilio Sandbox:** whatsapp:+1XXXXXXXXXX\n\n**Google Sheet:** YOUR_GOOGLE_SHEET_ID\n- LeadData (gid=0): Source leads\n- LeadTracking (gid=1478755081): Progress tracking",
+            "height": 634,
+            "width": 340
+          },
+          "id": "5fb26b0e-c989-4621-9c33-f034db944c57",
+          "name": "Sticky Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-4176, -2064]
+        },
+        {
+          "parameters": {
+            "content": "## PHONE FORMAT NOTE\n\nCurrent code assumes US (+1) numbers.\n\nFor Philippines, update Filter node:\n\nChange:\nconst e164Phone = phone.startsWith('1') ? `+${phone}` : `+1${phone}`;\n\nTo:\nconst e164Phone = `+${phone}`;\n\n(if numbers already include country code)",
+            "height": 340,
+            "width": 300
+          },
+          "id": "52dbed27-be6c-4667-aa18-913a793cf991",
+          "name": "Sticky Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-3168, -2240]
+        },
+        {
+          "parameters": {
+            "options": {}
+          },
+          "id": "e8f34b0c-a847-4ed2-9151-33970a15f2c6",
+          "name": "Respond to Webhook (No Leads)",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1,
+          "position": [-2000, -1968]
+        },
+        {
+          "parameters": {
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "value": "YOUR_SLACK_CHANNEL_ID",
+              "mode": "list",
+              "cachedResultName": "automation"
+            },
+            "text": "=:warning: *No qualified leads found*\n\nThe lead re-engagement workflow ran but found no leads with last_contact_date > 90 days.\n\nTime: {{ $now.toISO() }}",
+            "otherOptions": {}
+          },
+          "id": "10a38f1c-2be2-43dd-b145-648fb1d6a7e0",
+          "name": "Slack: No Leads Found",
+          "type": "n8n-nodes-base.slack",
+          "typeVersion": 2.2,
+          "position": [-2208, -1968],
+          "credentials": {
+            "slackApi": {
+              "id": "YOUR_SLACK_CREDENTIAL_ID",
+              "name": "Your Slack Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "value": "YOUR_SLACK_CHANNEL_ID",
+              "mode": "list",
+              "cachedResultName": "automation"
+            },
+            "text": "=:x: *Lead Marked: No Response*\n• Name: {{ $json.name }}\n• WhatsApp: {{ $json.phone_cleaned }}\n• Days since contact: {{ $json.days_since_contact }}",
+            "otherOptions": {}
+          },
+          "id": "1e3c714c-9213-478d-b184-b05956d82d17",
+          "name": "Slack: No Response",
+          "type": "n8n-nodes-base.slack",
+          "typeVersion": 2.2,
+          "position": [2240, -2080],
+          "credentials": {
+            "slackApi": {
+              "id": "YOUR_SLACK_CREDENTIAL_ID",
+              "name": "Your Slack Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "jsCode": "// Mark as No Response\nconst item = $input.item;\nconst stats = $getWorkflowStaticData('global').stats;\nstats.noResponse = (stats.noResponse || 0) + 1;\n\nreturn {\n  json: {\n    ...item.json,\n    final_tag: 'No Response',\n    current_status: 'Completed',\n    notes: 'Lead did not respond after 3 WhatsApp attempts over 5 days.'\n  }\n};"
+          },
+          "id": "284dc766-aceb-4043-a147-1b3adfe17f6e",
+          "name": "Tag: No Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [1632, -2080]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "final-check",
+                  "leftValue": "={{ $json.response_text }}",
+                  "rightValue": "",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "5ee847b9-b563-4e91-8018-fbe29a2c8f14",
+          "name": "Has Final Response?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [1424, -1968]
+        },
+        {
+          "parameters": {
+            "amount": 2,
+            "unit": "days"
+          },
+          "id": "71c5b398-5345-4d70-84b6-f6e0d5213fd3",
+          "name": "Wait for Final Response",
+          "type": "n8n-nodes-base.wait",
+          "typeVersion": 1.1,
+          "position": [1024, -1968],
+          "webhookId": "YOUR_WEBHOOK_ID"
+        },
+        {
+          "parameters": {
+            "from": "=whatsapp:+1XXXXXXXXXX",
+            "to": "={{ $json.phone_whatsapp }}",
+            "message": "={{ $json.whatsapp_message }}",
+            "options": {}
+          },
+          "id": "c3e852fa-935b-4b2c-a011-918766368c18",
+          "name": "Send WhatsApp Day 5",
+          "type": "n8n-nodes-base.twilio",
+          "typeVersion": 1,
+          "position": [832, -1968],
+          "credentials": {
+            "twilioApi": {
+              "id": "YOUR_TWILIO_CREDENTIAL_ID",
+              "name": "Your Twilio Account"
+            }
+          },
+          "onError": "continueErrorOutput"
+        },
+        {
+          "parameters": {
+            "jsCode": "// Prepare Day 5 final WhatsApp message\nconst item = $input.item;\nconst firstName = item.json.name.split(' ')[0];\n\nconst message = `Last chance, ${firstName}! 🎯\n\nThis is my final follow-up. If you're no longer interested, no worries at all.\n\nBut if timing was just off before, I'd still love to help.\n\n👉 Reply *YES* to connect\n👉 Reply *STOP* to opt out\n\nEither way, wishing you the best!`;\n\nreturn {\n  json: {\n    ...item.json,\n    whatsapp_message: message,\n    message_type: 'day5_final',\n    sequence_day: 5\n  }\n};"
+          },
+          "id": "f362c4ca-179a-4645-bf64-0fc293ede356",
+          "name": "Prepare Day 5 WhatsApp",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [624, -1968]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "check-response-day5",
+                  "leftValue": "={{ $json.response_text }}",
+                  "rightValue": "",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "e9893c10-ef97-4f96-98a8-78296f06ffce",
+          "name": "Has Response Day 5?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [432, -1872]
+        },
+        {
+          "parameters": {
+            "amount": 2,
+            "unit": "days"
+          },
+          "id": "3100b24a-06aa-425d-8f0d-2d73f61a9510",
+          "name": "Wait 2 More Days",
+          "type": "n8n-nodes-base.wait",
+          "typeVersion": 1.1,
+          "position": [32, -1872],
+          "webhookId": "YOUR_WEBHOOK_ID"
+        },
+        {
+          "parameters": {
+            "from": "=whatsapp:+1XXXXXXXXXX",
+            "to": "={{ $json.phone_whatsapp }}",
+            "message": "={{ $json.whatsapp_message }}",
+            "options": {}
+          },
+          "id": "98cc5c05-40f1-4357-a2c8-f668adeb11f4",
+          "name": "Send WhatsApp Day 3",
+          "type": "n8n-nodes-base.twilio",
+          "typeVersion": 1,
+          "position": [-192, -1872],
+          "credentials": {
+            "twilioApi": {
+              "id": "YOUR_TWILIO_CREDENTIAL_ID",
+              "name": "Your Twilio Account"
+            }
+          },
+          "onError": "continueErrorOutput"
+        },
+        {
+          "parameters": {
+            "jsCode": "// Prepare Day 3 follow-up WhatsApp message\nconst item = $input.item;\nconst firstName = item.json.name.split(' ')[0];\n\nconst message = `Hey ${firstName} 👋\n\nJust following up on my message from a couple days ago.\n\nWe have some exciting updates I'd love to share with you!\n\n📞 Interested in a quick 10-min call?\n\n👉 Reply *YES* to schedule\n👉 Reply *STOP* to opt out`;\n\nreturn {\n  json: {\n    ...item.json,\n    whatsapp_message: message,\n    message_type: 'day3_followup',\n    sequence_day: 3\n  }\n};"
+          },
+          "id": "46db4275-bebc-4bee-bf53-12f67f6b0d68",
+          "name": "Prepare Day 3 WhatsApp",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-384, -1872]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "check-response",
+                  "leftValue": "={{ $json.response_text }}",
+                  "rightValue": "",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "277bc625-c17c-4284-99f2-5ed75cbb23c1",
+          "name": "Has Response?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [-592, -1776]
+        },
+        {
+          "parameters": {
+            "amount": 2,
+            "unit": "days"
+          },
+          "id": "58f889dd-2d47-41e9-aa41-7414efad627b",
+          "name": "Wait 2 Days",
+          "type": "n8n-nodes-base.wait",
+          "typeVersion": 1.1,
+          "position": [-1200, -1776],
+          "webhookId": "YOUR_WEBHOOK_ID"
+        },
+        {
+          "parameters": {
+            "jsCode": "// Handle WhatsApp send error\nconst item = $input.item;\nconst stats = $getWorkflowStaticData('global').stats;\n\nstats.errors.push({\n  type: 'whatsapp_send_failed',\n  lead: item.json.name,\n  phone: item.json.phone_whatsapp,\n  error: item.json.error?.message || 'Unknown error',\n  timestamp: new Date().toISOString()\n});\n\nreturn {\n  json: {\n    ...item.json,\n    error_logged: true\n  }\n};"
+          },
+          "id": "5fafa905-8f48-4f32-b9ec-8fa7f7953b6e",
+          "name": "Log WhatsApp Error",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-1376, -1536]
+        },
+        {
+          "parameters": {
+            "from": "=whatsapp:+1XXXXXXXXXX",
+            "to": "={{ $json.phone_whatsapp }}",
+            "message": "={{ $json.whatsapp_message }}",
+            "options": {}
+          },
+          "id": "406a6511-6dca-4343-ae7b-ea7a0298a33b",
+          "name": "Send WhatsApp (Twilio)",
+          "type": "n8n-nodes-base.twilio",
+          "typeVersion": 1,
+          "position": [-1808, -1776],
+          "credentials": {
+            "twilioApi": {
+              "id": "YOUR_TWILIO_CREDENTIAL_ID",
+              "name": "Your Twilio Account"
+            }
+          },
+          "onError": "continueErrorOutput"
+        },
+        {
+          "parameters": {
+            "jsCode": "// Prepare Day 1 WhatsApp message\nconst item = $input.item;\nconst firstName = item.json.name.split(' ')[0];\n\nconst message = `Hi ${firstName}! 👋\n\nIt's been a while since we connected.\n\nWe've helped many clients like you achieve their goals recently, and I thought of you!\n\n✨ Would you be interested in catching up?\n\n👉 Reply *YES* to schedule a quick call\n👉 Reply *STOP* to opt out`;\n\nreturn {\n  json: {\n    ...item.json,\n    whatsapp_message: message,\n    message_type: 'day1_initial'\n  }\n};"
+          },
+          "id": "738b926c-4c1d-44c7-9e76-425ad89c4378",
+          "name": "Prepare Day 1 WhatsApp",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-2048, -1776]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict",
+                "version": 1
+              },
+              "conditions": [
+                {
+                  "id": "check-no-leads",
+                  "leftValue": "={{ $json.noLeads }}",
+                  "rightValue": true,
+                  "operator": {
+                    "type": "boolean",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "615edd61-5e16-4975-8bdd-42e927ef39ed",
+          "name": "Any Qualified Leads?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [-2608, -1872]
+        },
+        {
+          "parameters": {
+            "jsCode": "// Filter leads where last_contact_date > 90 days ago\nconst items = $input.all();\nconst stats = $getWorkflowStaticData('global').stats;\nstats.totalLeads = items.length;\n\nconst qualifiedLeads = [];\nconst today = new Date();\nconst ninetyDaysAgo = new Date(today.getTime() - (90 * 24 * 60 * 60 * 1000));\n\nfor (const item of items) {\n  const lastContact = new Date(item.json.last_contact_date);\n  \n  let phone = item.json.phone?.toString().replace(/\\D/g, '');\n  const isValidPhone = phone && phone.length >= 10 && phone.length <= 15;\n  \n  if (!isValidPhone) {\n    stats.errors.push({\n      type: 'invalid_phone',\n      lead: item.json.name,\n      phone: item.json.phone,\n      timestamp: new Date().toISOString()\n    });\n    continue;\n  }\n  \n  if (lastContact < ninetyDaysAgo) {\n    const e164Phone = phone.startsWith('1') ? `+${phone}` : `+1${phone}`;\n    const whatsappPhone = `whatsapp:${e164Phone}`;\n    \n    qualifiedLeads.push({\n      json: {\n        ...item.json,\n        phone_cleaned: e164Phone,\n        phone_whatsapp: whatsappPhone,\n        days_since_contact: Math.floor((today - lastContact) / (24 * 60 * 60 * 1000)),\n        sequence_day: 1,\n        workflow_id: `WF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`\n      }\n    });\n  }\n}\n\nstats.qualifiedLeads = qualifiedLeads.length;\n\nif (qualifiedLeads.length === 0) {\n  return [{ json: { noLeads: true, message: 'No qualified leads found' } }];\n}\n\nreturn qualifiedLeads;"
+          },
+          "id": "c4d70bb4-e170-4ae1-b73e-e3f636e3acd4",
+          "name": "Filter 90+ Days & Validate",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-2864, -1872]
+        },
+        {
+          "parameters": {
+            "jsCode": "// Initialize counters for reporting\nconst stats = {\n  totalLeads: 0,\n  qualifiedLeads: 0,\n  reengaged: 0,\n  unsubscribed: 0,\n  noResponse: 0,\n  errors: [],\n  startTime: new Date().toISOString(),\n  channel: 'WhatsApp'\n};\n\n$getWorkflowStaticData('global').stats = stats;\n\nreturn $input.all();"
+          },
+          "id": "516dc70b-4506-4931-9530-2ede913f1b0c",
+          "name": "Initialize Stats",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-3056, -1872]
+        },
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "lead-reengagement-whatsapp",
+            "responseMode": "responseNode",
+            "options": {}
+          },
+          "id": "20adf61d-f7cf-42d8-9b3f-3bf851323f96",
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "position": [-3728, -1680],
+          "webhookId": "YOUR_WEBHOOK_ID"
+        },
+        {
+          "parameters": {
+            "rule": {
+              "interval": [
+                {
+                  "field": "cronExpression",
+                  "expression": "0 9 * * 1"
+                }
+              ]
+            }
+          },
+          "id": "fd456893-17ed-4c59-9abf-2e839d165ed5",
+          "name": "Weekly Schedule (Mon 9AM)",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2,
+          "position": [-3728, -1872]
+        },
+        {
+          "parameters": {},
+          "id": "c2490d08-66f9-4e81-817a-1a9565206d3f",
+          "name": "Manual Trigger",
+          "type": "n8n-nodes-base.manualTrigger",
+          "typeVersion": 1,
+          "position": [-3728, -2080]
+        },
+        {
+          "parameters": {
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "gid=0",
+              "mode": "list",
+              "cachedResultName": "LeadData",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-3360, -1872],
+          "id": "356be4b1-ec5d-44ef-8461-4ac4b433b028",
+          "name": "Get row(s) in sheet",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "operation": "append",
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "columns": {
+              "mappingMode": "defineBelow",
+              "value": {
+                "workflow_id": "={{ $json.workflow_id }}",
+                "name": "={{ $json.name }}",
+                "phone": "={{ $json.phone_cleaned }}",
+                "email": "={{ $json.email }}",
+                "original_last_contact": "={{ $json.last_contact_date }}",
+                "days_since_contact": "={{ $json.days_since_contact }}",
+                "current_status": "In Progress",
+                "sequence_started": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+                "sequence_day": "1",
+                "channel": "WhatsApp"
+              },
+              "matchingColumns": [],
+              "schema": [
+                {"id": "workflow_id", "displayName": "workflow_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "name", "displayName": "name", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "phone", "displayName": "phone", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "email", "displayName": "email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "original_last_contact", "displayName": "original_last_contact", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "days_since_contact", "displayName": "days_since_contact", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "sequence_started", "displayName": "sequence_started", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "current_status", "displayName": "current_status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "sequence_day", "displayName": "sequence_day", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "channel", "displayName": "channel", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
+              ],
+              "attemptToConvertTypes": false,
+              "convertFieldsToString": false
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-2336, -1776],
+          "id": "f00c7de5-1231-49e2-8723-15c100a6103f",
+          "name": "Append row in sheet",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "operation": "update",
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "columns": {
+              "mappingMode": "defineBelow",
+              "value": {
+                "workflow_id": "={{ $json.workflow_id }}",
+                "last_sms_sent": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+                "last_sms_type": "={{ $json.message_type }}",
+                "twilio_sid": "={{ $json.sid }}",
+                "row_number": 0
+              },
+              "matchingColumns": ["workflow_id"],
+              "schema": [
+                {"id": "workflow_id", "displayName": "workflow_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "last_sms_sent", "displayName": "last_sms_sent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "last_sms_type", "displayName": "last_sms_type", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "twilio_sid", "displayName": "twilio_sid", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "row_number", "displayName": "row_number", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "readOnly": true}
+              ],
+              "attemptToConvertTypes": false,
+              "convertFieldsToString": false
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-1536, -1840],
+          "id": "acad0198-cf42-4d27-b56c-dd7df1805e57",
+          "name": "Update Sheet - WhatsApp Sent",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "filtersUI": {
+              "values": [{"lookupColumn": "workflow_id", "lookupValue": "={{ $json.workflow_id }}"}]
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-944, -1776],
+          "id": "a3b4eda2-a9d0-4bfd-9fa1-f19d4846d30e",
+          "name": "Check for Response (Day 3)",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "filtersUI": {
+              "values": [{"lookupColumn": "workflow_id", "lookupValue": "={{ $json.workflow_id }}"}]
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [240, -1872],
+          "id": "cdb0b9a2-331c-419d-bfa5-087b3ffb9521",
+          "name": "Check for Response (Day 5)1",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "filtersUI": {
+              "values": [{"lookupColumn": "workflow_id", "lookupValue": "={{ $json.workflow_id }}"}]
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [1216, -1968],
+          "id": "d7766e2d-a8d1-4c83-b09e-5ab28fa52c8c",
+          "name": "Check for Response (Day 5)",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "operation": "update",
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "columns": {
+              "mappingMode": "defineBelow",
+              "value": {
+                "workflow_id": "={{ $json.workflow_id }}",
+                "current_status": "={{ $json.current_status }}",
+                "final_tag": "={{ $json.final_tag }}",
+                "notes": "={{ $json.notes }}",
+                "completed_at": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}"
+              },
+              "matchingColumns": ["workflow_id"],
+              "schema": [
+                {"id": "workflow_id", "displayName": "workflow_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "current_status", "displayName": "current_status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "final_tag", "displayName": "final_tag", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "notes", "displayName": "notes", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "completed_at", "displayName": "completed_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
+              ],
+              "attemptToConvertTypes": false,
+              "convertFieldsToString": false
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [1968, -2064],
+          "id": "bd01ed4a-464a-4ca4-9bec-f6c2699d0206",
+          "name": "Update row in sheet",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        }
+      ],
+      "connections": {
+        "Slack: No Leads Found": {"main": [[{"node": "Respond to Webhook (No Leads)", "type": "main", "index": 0}]]},
+        "Tag: No Response": {"main": [[{"node": "Update row in sheet", "type": "main", "index": 0}]]},
+        "Has Final Response?": {"main": [[{"node": "Tag: No Response", "type": "main", "index": 0}], [{"node": "Update row in sheet", "type": "main", "index": 0}]]},
+        "Wait for Final Response": {"main": [[{"node": "Check for Response (Day 5)", "type": "main", "index": 0}]]},
+        "Send WhatsApp Day 5": {"main": [[{"node": "Wait for Final Response", "type": "main", "index": 0}]]},
+        "Prepare Day 5 WhatsApp": {"main": [[{"node": "Send WhatsApp Day 5", "type": "main", "index": 0}]]},
+        "Has Response Day 5?": {"main": [[{"node": "Prepare Day 5 WhatsApp", "type": "main", "index": 0}], [{"node": "Update row in sheet", "type": "main", "index": 0}]]},
+        "Wait 2 More Days": {"main": [[{"node": "Check for Response (Day 5)1", "type": "main", "index": 0}]]},
+        "Send WhatsApp Day 3": {"main": [[{"node": "Wait 2 More Days", "type": "main", "index": 0}]]},
+        "Prepare Day 3 WhatsApp": {"main": [[{"node": "Send WhatsApp Day 3", "type": "main", "index": 0}]]},
+        "Has Response?": {"main": [[{"node": "Prepare Day 3 WhatsApp", "type": "main", "index": 0}], [{"node": "Update row in sheet", "type": "main", "index": 0}]]},
+        "Wait 2 Days": {"main": [[{"node": "Check for Response (Day 3)", "type": "main", "index": 0}]]},
+        "Send WhatsApp (Twilio)": {"main": [[{"node": "Update Sheet - WhatsApp Sent", "type": "main", "index": 0}], [{"node": "Log WhatsApp Error", "type": "main", "index": 0}]]},
+        "Prepare Day 1 WhatsApp": {"main": [[{"node": "Send WhatsApp (Twilio)", "type": "main", "index": 0}]]},
+        "Any Qualified Leads?": {"main": [[{"node": "Slack: No Leads Found", "type": "main", "index": 0}], [{"node": "Append row in sheet", "type": "main", "index": 0}]]},
+        "Filter 90+ Days & Validate": {"main": [[{"node": "Any Qualified Leads?", "type": "main", "index": 0}]]},
+        "Initialize Stats": {"main": [[{"node": "Filter 90+ Days & Validate", "type": "main", "index": 0}]]},
+        "Webhook Trigger": {"main": [[{"node": "Get row(s) in sheet", "type": "main", "index": 0}]]},
+        "Weekly Schedule (Mon 9AM)": {"main": [[{"node": "Get row(s) in sheet", "type": "main", "index": 0}]]},
+        "Manual Trigger": {"main": [[{"node": "Get row(s) in sheet", "type": "main", "index": 0}]]},
+        "Get row(s) in sheet": {"main": [[{"node": "Initialize Stats", "type": "main", "index": 0}]]},
+        "Append row in sheet": {"main": [[{"node": "Prepare Day 1 WhatsApp", "type": "main", "index": 0}]]},
+        "Update Sheet - WhatsApp Sent": {"main": [[{"node": "Wait 2 Days", "type": "main", "index": 0}]]},
+        "Check for Response (Day 3)": {"main": [[{"node": "Has Response?", "type": "main", "index": 0}]]},
+        "Check for Response (Day 5)1": {"main": [[{"node": "Has Response Day 5?", "type": "main", "index": 0}]]},
+        "Check for Response (Day 5)": {"main": [[{"node": "Has Final Response?", "type": "main", "index": 0}]]},
+        "Update row in sheet": {"main": [[{"node": "Slack: No Response", "type": "main", "index": 0}]]}
+      },
+      "pinData": {},
+      "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "YOUR_INSTANCE_ID"
+      }
+    },
+    {
+      "name": "WhatsApp Response Handler",
+      "description": "Receives and processes incoming WhatsApp replies from leads using AI categorization",
+      "nodes": [
+        {
+          "parameters": {
+            "content": "## FLOW LOGIC\n\n1. Receive WhatsApp message from Twilio\n2. Parse phone number and message\n3. Find lead in LeadTracking sheet by phone\n4. If not found -> respond empty XML\n5. If found -> AI analyzes response\n6. Categorize and update sheet\n7. Send Slack notification\n8. Respond to Twilio with empty XML",
+            "height": 308,
+            "width": 280
+          },
+          "id": "02c5705f-ac6f-4c91-b235-9334eb5b92f0",
+          "name": "Sticky Note2",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-3376, -192]
+        },
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "twilio-whatsapp-response",
+            "responseMode": "responseNode",
+            "options": {}
+          },
+          "id": "d8c9983d-62bb-4ae6-aca8-d48bf03a18e1",
+          "name": "Twilio WhatsApp Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "position": [-3408, 144],
+          "webhookId": "YOUR_WEBHOOK_ID"
+        },
+        {
+          "parameters": {
+            "jsCode": "// Parse incoming Twilio WhatsApp webhook data\nconst body = $input.item.json.body;\n\nconst fromNumber = body.From || '';\nconst messageBody = body.Body || '';\nconst messageSid = body.MessageSid || '';\n\nconst phoneWithoutPrefix = fromNumber.replace('whatsapp:', '');\n\nconst formattedPhone = phoneWithoutPrefix.startsWith('+') \n  ? phoneWithoutPrefix \n  : `+${phoneWithoutPrefix}`;\n\nconst whatsappPhone = `whatsapp:${formattedPhone}`;\n\nreturn {\n  json: {\n    from_number: fromNumber,\n    formatted_phone: formattedPhone,\n    phone_whatsapp: whatsappPhone,\n    message_body: messageBody,\n    message_body_upper: messageBody.toUpperCase().trim(),\n    message_sid: messageSid,\n    received_at: new Date().toISOString()\n  }\n};"
+          },
+          "id": "129dc988-a58f-4414-b946-a701b7dd4b81",
+          "name": "Parse WhatsApp Data",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-3200, 144]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "check-lead-found",
+                  "leftValue": "={{ $json.workflow_id }}",
+                  "rightValue": "",
+                  "operator": {
+                    "type": "string",
+                    "operation": "notEmpty"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "8ca7d2c1-a03b-46a2-9f22-87463e529353",
+          "name": "Lead Found?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [-2592, 144]
+        },
+        {
+          "parameters": {
+            "options": {}
+          },
+          "id": "20e4e1e9-eab6-4a15-a286-73367d60467c",
+          "name": "AI: Analyze Response (Gemini)",
+          "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+          "typeVersion": 1,
+          "position": [-2352, 96],
+          "credentials": {
+            "googlePalmApi": {
+              "id": "YOUR_GEMINI_CREDENTIAL_ID",
+              "name": "Your Gemini Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "jsCode": "// Parse AI response and determine final categorization\nconst item = $input.item;\nconst messageUpper = $('Parse WhatsApp Data').item.json.message_body_upper;\nlet aiResult;\n\ntry {\n  const aiText = item.json.text || item.json.message?.content || '{}';\n  const cleanedText = aiText.replace(/```json\\n?|```\\n?/g, '').trim();\n  aiResult = JSON.parse(cleanedText);\n} catch (e) {\n  aiResult = { category: 'UNCLEAR', confidence: 0.5, reasoning: 'AI parse failed, using keyword matching' };\n}\n\nconst positiveKeywords = ['YES', 'INTERESTED', 'SURE', 'OK', 'OKAY', 'SOUNDS GOOD', 'TELL ME MORE', 'CALL ME', 'SCHEDULE'];\nconst negativeKeywords = ['STOP', 'NO', 'UNSUBSCRIBE', 'REMOVE', 'CANCEL', 'QUIT', 'END', 'OPT OUT'];\n\nlet finalCategory = aiResult.category;\nlet finalTag = aiResult.suggested_tag || 'Unclear';\n\nif (positiveKeywords.some(kw => messageUpper.includes(kw))) {\n  finalCategory = 'INTERESTED';\n  finalTag = 'Re-engaged';\n} else if (negativeKeywords.some(kw => messageUpper.includes(kw))) {\n  finalCategory = 'UNSUBSCRIBED';\n  finalTag = 'Unsubscribed';\n}\n\nreturn {\n  json: {\n    ...$('Find Lead in Sheet').item.json,\n    response_text: $('Parse WhatsApp Data').item.json.message_body,\n    response_category: finalCategory,\n    ai_confidence: aiResult.confidence || 0.5,\n    ai_reasoning: aiResult.reasoning || 'No reasoning provided',\n    final_tag: finalTag,\n    response_received_at: $('Parse WhatsApp Data').item.json.received_at\n  }\n};"
+          },
+          "id": "f9f00c97-2887-41b9-bbd8-2b6cac3c95c4",
+          "name": "Categorize Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-1936, 48]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "check-reengaged",
+                  "leftValue": "={{ $json.final_tag }}",
+                  "rightValue": "Re-engaged",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "92714ed1-32a4-4ff6-bbc9-5efe681ccdf6",
+          "name": "Is Re-engaged?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [-1728, 48]
+        },
+        {
+          "parameters": {
+            "jsCode": "// Update stats for re-engaged\nconst stats = $getWorkflowStaticData('global').stats || {};\nstats.reengaged = (stats.reengaged || 0) + 1;\n\nreturn {\n  json: {\n    ...$input.item.json,\n    current_status: 'Completed',\n    notes: `Lead re-engaged via WhatsApp! Response: \"${$input.item.json.response_text}\". AI confidence: ${$input.item.json.ai_confidence}. Reasoning: ${$input.item.json.ai_reasoning}`\n  }\n};"
+          },
+          "id": "e26576b6-0c55-48f0-82d0-5e2ca5dedfd7",
+          "name": "Process: Re-engaged",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-1536, -64]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "check-unsubscribed",
+                  "leftValue": "={{ $json.final_tag }}",
+                  "rightValue": "Unsubscribed",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "d92d28ea-4c35-47dd-9fc8-03a30baf7c8b",
+          "name": "Is Unsubscribed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [-1600, 256]
+        },
+        {
+          "parameters": {
+            "jsCode": "// Update stats for unsubscribed\nconst stats = $getWorkflowStaticData('global').stats || {};\nstats.unsubscribed = (stats.unsubscribed || 0) + 1;\n\nreturn {\n  json: {\n    ...$input.item.json,\n    current_status: 'Completed',\n    notes: `Lead opted out via WhatsApp. Response: \"${$input.item.json.response_text}\". Removed from future campaigns.`\n  }\n};"
+          },
+          "id": "48a0245d-ba4f-49cc-9a2b-6e9796564437",
+          "name": "Process: Unsubscribed",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-1392, 128]
+        },
+        {
+          "parameters": {
+            "jsCode": "// Handle other responses (questions, unclear)\nreturn {\n  json: {\n    ...$input.item.json,\n    current_status: 'Needs Review',\n    notes: `WhatsApp response needs manual review: \"${$input.item.json.response_text}\". Category: ${$input.item.json.response_category}. AI reasoning: ${$input.item.json.ai_reasoning}`\n  }\n};"
+          },
+          "id": "cadcb521-d4d5-482b-a78b-516b6225d8cc",
+          "name": "Process: Other Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-1392, 320]
+        },
+        {
+          "parameters": {
+            "operation": "update",
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "columns": {
+              "mappingMode": "defineBelow",
+              "value": {
+                "workflow_id": "={{ $json.workflow_id }}",
+                "response_text": "={{ $json.response_text }}",
+                "response_category": "={{ $json.response_category }}",
+                "final_tag": "={{ $json.final_tag }}",
+                "current_status": "={{ $json.current_status }}",
+                "notes": "={{ $json.notes }}",
+                "response_received_at": "={{ $json.response_received_at }}",
+                "completed_at": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}"
+              },
+              "matchingColumns": ["workflow_id"],
+              "schema": [
+                {"id": "workflow_id", "displayName": "workflow_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "response_text", "displayName": "response_text", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "response_category", "displayName": "response_category", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "final_tag", "displayName": "final_tag", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "current_status", "displayName": "current_status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "notes", "displayName": "notes", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "response_received_at", "displayName": "response_received_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "completed_at", "displayName": "completed_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
+              ],
+              "attemptToConvertTypes": false,
+              "convertFieldsToString": false
+            },
+            "options": {}
+          },
+          "id": "1e718d4a-7fbc-4de7-86ae-74c960bd231e",
+          "name": "Update Sheet with Response",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-1136, 144],
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "respondWith": "text",
+            "responseBody": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>",
+            "options": {
+              "responseHeaders": {
+                "entries": [{"name": "Content-Type", "value": "text/xml"}]
+              }
+            }
+          },
+          "id": "fb1942c7-34ff-41bd-b8b4-f499a392fa4a",
+          "name": "Respond to Twilio",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1,
+          "position": [-736, 144]
+        },
+        {
+          "parameters": {
+            "respondWith": "text",
+            "responseBody": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>",
+            "options": {
+              "responseHeaders": {
+                "entries": [{"name": "Content-Type", "value": "text/xml"}]
+              }
+            }
+          },
+          "id": "eb0ebab1-6eb0-47d1-bc6f-4ff2a356feaf",
+          "name": "Respond to Twilio (Unknown)",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1,
+          "position": [-2336, 336]
+        },
+        {
+          "parameters": {
+            "options": {
+              "systemMessage": "You are a WhatsApp Response Analyzer for a lead re-engagement campaign. Your job is to categorize incoming WhatsApp replies from leads and determine their intent.\n\n## CONTEXT\n- We are re-engaging old leads (90+ days inactive) via WhatsApp\n- Leads received messages asking if they want to reconnect\n- They were told to reply \"YES\" to schedule a call or \"STOP\" to opt out\n\n## YOUR TASK\nAnalyze the WhatsApp response and return a JSON categorization.\n\n## CATEGORIES\n\n**INTERESTED** - Lead wants to engage\n- Examples: \"Yes\", \"Sure\", \"OK\", \"Sounds good\", \"Tell me more\", \"Call me\", \"I'm interested\", \"Let's talk\", \"Schedule me\", \"What time?\", \"👍\", \"Yeah\", \"Oo\" (Filipino yes), \"Sige\", \"G\"\n\n**UNSUBSCRIBED** - Lead wants to stop messages\n- Examples: \"Stop\", \"No\", \"Unsubscribe\", \"Remove me\", \"Cancel\", \"Don't text me\", \"Leave me alone\", \"Not interested\", \"Quit\", \"End\", \"Opt out\", \"Hindi\" (Filipino no), \"Ayaw ko\"\n\n**QUESTION** - Lead needs more info before deciding\n- Examples: \"What is this about?\", \"Who is this?\", \"What services?\", \"How much?\", \"What company?\", \"Remind me what this is for?\", \"Sino to?\", \"Ano to?\"\n\n**UNCLEAR** - Cannot determine intent\n- Examples: \"K\", \"Hmm\", \"Maybe\", \"🤔\", random words, typos that are unreadable\n\n## RESPONSE FORMAT\nReturn ONLY valid JSON, no markdown, no explanation:\n\n{\"category\": \"INTERESTED|UNSUBSCRIBED|QUESTION|UNCLEAR\", \"confidence\": 0.0-1.0, \"reasoning\": \"brief explanation\", \"suggested_tag\": \"Re-engaged|Unsubscribed|Needs Follow-up|Unclear\"}\n\n## RULES\n1. Be generous with INTERESTED - if they seem even slightly positive, mark as interested\n2. STOP and NO are always UNSUBSCRIBED, even with extra words\n3. Questions get QUESTION category with \"Needs Follow-up\" tag\n4. When in doubt between INTERESTED and UNCLEAR, choose INTERESTED\n5. Confidence should reflect how certain you are (0.9+ for obvious, 0.5-0.7 for ambiguous)\n6. Never output anything except the JSON object\n7. Consider Filipino/Tagalog responses common in Philippines"
+            }
+          },
+          "type": "@n8n/n8n-nodes-langchain.agent",
+          "typeVersion": 3,
+          "position": [-2368, -128],
+          "id": "2bfbbe58-d925-4382-b0eb-8bcaafbcb693",
+          "name": "AI Agent"
+        },
+        {
+          "parameters": {
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "filtersUI": {
+              "values": [{"lookupColumn": "phone", "lookupValue": "={{ $json.formatted_phone }}"}]
+            },
+            "options": {}
+          },
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-2928, 144],
+          "id": "95bcbc04-fec7-4172-a1b6-fc36e9d66738",
+          "name": "Find Lead in Sheet",
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "value": "YOUR_SLACK_CHANNEL_ID",
+              "mode": "list",
+              "cachedResultName": "automation"
+            },
+            "text": "=:speech_balloon: *New WhatsApp Response Received*\n\n• *Lead:* {{ $json.name }}\n• *Phone:* {{ $json.phone }}\n• *Response:* \"{{ $json.response_text }}\"\n• *Category:* {{ $json.response_category }}\n• *Tag:* {{ $json.final_tag }}\n• *AI Confidence:* {{ $json.ai_confidence }}\n• *Status:* {{ $json.current_status }}",
+            "otherOptions": {}
+          },
+          "id": "29496522-d12f-4906-a91d-8bab0993947d",
+          "name": "Slack: Response Notification",
+          "type": "n8n-nodes-base.slack",
+          "typeVersion": 2.2,
+          "position": [-944, 128],
+          "credentials": {
+            "slackApi": {
+              "id": "YOUR_SLACK_CREDENTIAL_ID",
+              "name": "Your Slack Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "content": "## WHATSAPP RESPONSE HANDLER\n\n**Purpose:** Receives and processes incoming WhatsApp replies from leads\n\n**AI Model:** Google Gemini\n\n**Response Categories:**\n- INTERESTED -> Re-engaged\n- UNSUBSCRIBED -> Unsubscribed\n- QUESTION -> Needs Follow-up\n- UNCLEAR -> Unclear",
+            "height": 380,
+            "width": 320
+          },
+          "id": "41b2eaaa-beda-4beb-8c9a-a9bd2ec43720",
+          "name": "Sticky Note3",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-3760, -96]
+        }
+      ],
+      "connections": {
+        "Twilio WhatsApp Webhook": {"main": [[{"node": "Parse WhatsApp Data", "type": "main", "index": 0}]]},
+        "Parse WhatsApp Data": {"main": [[{"node": "Find Lead in Sheet", "type": "main", "index": 0}]]},
+        "Lead Found?": {"main": [[{"node": "AI Agent", "type": "main", "index": 0}], [{"node": "Respond to Twilio (Unknown)", "type": "main", "index": 0}]]},
+        "AI: Analyze Response (Gemini)": {"ai_languageModel": [[{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]]},
+        "Categorize Response": {"main": [[{"node": "Is Re-engaged?", "type": "main", "index": 0}]]},
+        "Is Re-engaged?": {"main": [[{"node": "Process: Re-engaged", "type": "main", "index": 0}], [{"node": "Is Unsubscribed?", "type": "main", "index": 0}]]},
+        "Process: Re-engaged": {"main": [[{"node": "Update Sheet with Response", "type": "main", "index": 0}]]},
+        "Is Unsubscribed?": {"main": [[{"node": "Process: Unsubscribed", "type": "main", "index": 0}], [{"node": "Process: Other Response", "type": "main", "index": 0}]]},
+        "Process: Unsubscribed": {"main": [[{"node": "Update Sheet with Response", "type": "main", "index": 0}]]},
+        "Process: Other Response": {"main": [[{"node": "Update Sheet with Response", "type": "main", "index": 0}]]},
+        "Update Sheet with Response": {"main": [[{"node": "Slack: Response Notification", "type": "main", "index": 0}]]},
+        "AI Agent": {"main": [[{"node": "Categorize Response", "type": "main", "index": 0}]]},
+        "Find Lead in Sheet": {"main": [[{"node": "Lead Found?", "type": "main", "index": 0}]]},
+        "Slack: Response Notification": {"main": [[{"node": "Respond to Twilio", "type": "main", "index": 0}]]}
+      },
+      "pinData": {},
+      "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "YOUR_INSTANCE_ID"
+      }
+    },
+    {
+      "name": "Daily Report & Error Handler",
+      "description": "Generates daily summary reports and handles workflow errors with retry logic",
+      "nodes": [
+        {
+          "parameters": {
+            "rule": {
+              "interval": [
+                {
+                  "field": "cronExpression",
+                  "expression": "0 18 * * *"
+                }
+              ]
+            }
+          },
+          "id": "645e2a02-820c-485c-a485-fa8be9d59045",
+          "name": "Daily Report (6 PM)",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2,
+          "position": [-2704, 1152]
+        },
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "generate-report",
+            "responseMode": "responseNode",
+            "options": {}
+          },
+          "id": "ca16d2fb-1b9f-48a6-9dc6-41296c3810a9",
+          "name": "Report Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "position": [-2704, 1360],
+          "webhookId": "YOUR_WEBHOOK_ID"
+        },
+        {
+          "parameters": {
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "YOUR_LEAD_TRACKING_SHEET_GID",
+              "mode": "list",
+              "cachedResultName": "LeadTracking",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_LEAD_TRACKING_SHEET_GID"
+            },
+            "options": {}
+          },
+          "id": "d783a1de-2b51-4f1e-a019-fb6a435e0d2b",
+          "name": "Read All Lead Data",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-2448, 1264],
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "jsCode": "// Generate comprehensive summary report\nconst items = $input.all();\nconst today = new Date();\nconst todayStr = today.toISOString().split('T')[0];\n\n// Filter for today's/recent activity\nconst recentItems = items.filter(item => {\n  const seqStarted = item.json.sequence_started;\n  if (!seqStarted) return false;\n  const startDate = new Date(seqStarted).toISOString().split('T')[0];\n  // Include items from last 7 days\n  const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];\n  return startDate >= sevenDaysAgo;\n});\n\n// Calculate statistics\nconst stats = {\n  total_processed: recentItems.length,\n  in_progress: 0,\n  reengaged: 0,\n  unsubscribed: 0,\n  no_response: 0,\n  needs_review: 0,\n  errors: 0\n};\n\nconst reengagedLeads = [];\nconst unsubscribedLeads = [];\nconst needsReviewLeads = [];\n\nfor (const item of recentItems) {\n  const tag = item.json.final_tag?.toLowerCase() || '';\n  const status = item.json.current_status?.toLowerCase() || '';\n  \n  if (status === 'in progress') {\n    stats.in_progress++;\n  } else if (tag === 're-engaged' || tag === 'reengaged') {\n    stats.reengaged++;\n    reengagedLeads.push(item.json.name);\n  } else if (tag === 'unsubscribed') {\n    stats.unsubscribed++;\n    unsubscribedLeads.push(item.json.name);\n  } else if (tag === 'no response') {\n    stats.no_response++;\n  } else if (status === 'needs review') {\n    stats.needs_review++;\n    needsReviewLeads.push({ name: item.json.name, response: item.json.response_text });\n  }\n}\n\n// Calculate rates\nconst completedTotal = stats.reengaged + stats.unsubscribed + stats.no_response;\nconst reengagementRate = completedTotal > 0 ? ((stats.reengaged / completedTotal) * 100).toFixed(1) : 0;\nconst unsubscribeRate = completedTotal > 0 ? ((stats.unsubscribed / completedTotal) * 100).toFixed(1) : 0;\n\nreturn {\n  json: {\n    report_date: todayStr,\n    report_period: 'Last 7 Days',\n    channel: 'WhatsApp',\n    stats: stats,\n    rates: {\n      reengagement_rate: `${reengagementRate}%`,\n      unsubscribe_rate: `${unsubscribeRate}%`\n    },\n    reengaged_leads: reengagedLeads,\n    unsubscribed_leads: unsubscribedLeads,\n    needs_review_leads: needsReviewLeads\n  }\n};"
+          },
+          "id": "41a6489e-c19a-417e-bb64-d8c9d18f6100",
+          "name": "Generate Report Stats",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-2240, 1264]
+        },
+        {
+          "parameters": {
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "value": "YOUR_SLACK_CHANNEL_ID",
+              "mode": "list",
+              "cachedResultName": "automation"
+            },
+            "text": "=:bar_chart: *WhatsApp Lead Re-engagement Summary Report*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n:calendar: *Report Date:* {{ $json.report_date }}\n:clock3: *Period:* {{ $json.report_period }}\n:speech_balloon: *Channel:* {{ $json.channel }}\n\n*📊 Overall Statistics:*\n• Total Leads Processed: *{{ $json.stats.total_processed }}*\n• Currently In Progress: *{{ $json.stats.in_progress }}*\n\n*✅ Outcomes:*\n• :tada: Re-engaged: *{{ $json.stats.reengaged }}* ({{ $json.rates.reengagement_rate }})\n• :no_entry_sign: Unsubscribed: *{{ $json.stats.unsubscribed }}* ({{ $json.rates.unsubscribe_rate }})\n• :zzz: No Response: *{{ $json.stats.no_response }}*\n• :mag: Needs Review: *{{ $json.stats.needs_review }}*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n{{ $json.stats.reengaged > 0 ? ':star: *Re-engaged Leads:* ' + $json.reengaged_leads.join(', ') : '' }}\n{{ $json.stats.needs_review > 0 ? ':warning: *Needs Manual Review:* ' + $json.needs_review_leads.length + ' leads require attention' : '' }}",
+            "otherOptions": {
+              "includeLinkToWorkflow": true
+            }
+          },
+          "id": "b118ee8f-8508-4eb7-ba85-befae5f07e90",
+          "name": "Send Slack Report",
+          "type": "n8n-nodes-base.slack",
+          "typeVersion": 2.2,
+          "position": [-2048, 1264],
+          "webhookId": "YOUR_WEBHOOK_ID",
+          "credentials": {
+            "slackApi": {
+              "id": "YOUR_SLACK_CREDENTIAL_ID",
+              "name": "Your Slack Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "respondWith": "json",
+            "responseBody": "={{ JSON.stringify({ success: true, report: $json }) }}",
+            "options": {}
+          },
+          "id": "8c9aba38-f36e-4401-8e71-c746ad974fec",
+          "name": "Respond to Webhook",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1,
+          "position": [-1840, 1360]
+        },
+        {
+          "parameters": {
+            "content": "## DAILY REPORT WORKFLOW\n\n**Purpose:** Generates summary report of lead re-engagement campaign\n\n**Triggers:**\n- Schedule: Daily at 6 PM\n- Webhook: POST /generate-report",
+            "height": 268,
+            "width": 300
+          },
+          "id": "6837984d-8a28-4ee2-9aad-faaa92c73739",
+          "name": "Sticky Note4",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-3056, 1056]
+        },
+        {
+          "parameters": {
+            "content": "## METRICS TRACKED\n\n- Total leads processed\n- In progress count\n- Re-engaged count and rate\n- Unsubscribed count and rate\n- No response count\n- Needs review count\n\nAlso lists names of re-engaged leads and leads needing review.",
+            "height": 320,
+            "width": 280
+          },
+          "id": "f07b12b3-077a-496d-b71f-c81cb54c7ede",
+          "name": "Sticky Note5",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-3040, 1376]
+        },
+        {
+          "parameters": {},
+          "id": "68c9dc88-1ce9-4862-968e-da3061bf0d3e",
+          "name": "Error Trigger",
+          "type": "n8n-nodes-base.errorTrigger",
+          "typeVersion": 1,
+          "position": [-2608, 2080]
+        },
+        {
+          "parameters": {
+            "jsCode": "// Parse error details\nconst execution = $input.item.json.execution;\nconst workflow = $input.item.json.workflow;\n\nconst errorDetails = {\n  workflow_name: workflow?.name || 'Unknown',\n  workflow_id: workflow?.id || 'Unknown',\n  execution_id: execution?.id || 'Unknown',\n  error_message: execution?.error?.message || 'Unknown error',\n  error_node: execution?.error?.node?.name || 'Unknown node',\n  timestamp: new Date().toISOString(),\n  retry_count: execution?.retryOf ? 1 : 0\n};\n\nreturn { json: errorDetails };"
+          },
+          "id": "fc73b1a4-bb0a-4a3f-be1e-6e6df7ddd420",
+          "name": "Parse Error Details",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-2416, 2080]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict"
+              },
+              "conditions": [
+                {
+                  "id": "check-retry",
+                  "leftValue": "={{ $json.retry_count }}",
+                  "rightValue": 3,
+                  "operator": {
+                    "type": "number",
+                    "operation": "lt"
+                  }
+                }
+              ],
+              "combinator": "and"
+            },
+            "options": {}
+          },
+          "id": "6ffb285e-68f8-4641-8d38-ff2f0a6bcacb",
+          "name": "Should Retry?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2,
+          "position": [-2208, 2080]
+        },
+        {
+          "parameters": {
+            "jsCode": "// Calculate exponential backoff delay\nconst retryCount = $input.item.json.retry_count || 0;\nconst baseDelay = 5000; // 5 seconds\nconst maxDelay = 60000; // 60 seconds\nconst delay = Math.min(baseDelay * Math.pow(2, retryCount), maxDelay);\n\nreturn {\n  json: {\n    ...$input.item.json,\n    retry_delay_ms: delay,\n    retry_delay_readable: `${delay / 1000} seconds`,\n    next_retry_count: retryCount + 1\n  }\n};"
+          },
+          "id": "1300fcdf-d050-4fde-8c52-2c24575ab00d",
+          "name": "Calculate Backoff",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [-2016, 1968]
+        },
+        {
+          "parameters": {
+            "amount": "={{ Math.ceil($json.retry_delay_ms / 1000) }}"
+          },
+          "id": "206ca9b3-a7be-4a0f-86f9-29d31eab2ef7",
+          "name": "Wait (Backoff)",
+          "type": "n8n-nodes-base.wait",
+          "typeVersion": 1.1,
+          "position": [-1808, 1968],
+          "webhookId": "YOUR_WEBHOOK_ID"
+        },
+        {
+          "parameters": {
+            "workflowId": "={{ $json.workflow_id }}",
+            "workflowInputs": {
+              "mappingMode": "defineBelow",
+              "value": {}
+            },
+            "options": {}
+          },
+          "id": "b58da77b-13c0-447a-812c-dd1b065c5050",
+          "name": "Retry Workflow",
+          "type": "n8n-nodes-base.executeWorkflow",
+          "typeVersion": 1.2,
+          "position": [-1616, 1968]
+        },
+        {
+          "parameters": {
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "value": "YOUR_SLACK_CHANNEL_ID",
+              "mode": "list",
+              "cachedResultName": "automation"
+            },
+            "text": "=:rotating_light: *WhatsApp Workflow Error Alert*\n\n• *Workflow:* {{ $json.workflow_name }}\n• *Node:* {{ $json.error_node }}\n• *Error:* {{ $json.error_message }}\n• *Execution ID:* {{ $json.execution_id }}\n• *Time:* {{ $json.timestamp }}\n• *Retries Exhausted:* Yes (3/3)\n\n:warning: *Manual intervention required*",
+            "otherOptions": {
+              "includeLinkToWorkflow": true
+            }
+          },
+          "id": "3c4b706e-4de0-4839-9af7-d722b9b8bc8b",
+          "name": "Slack: Final Error Alert",
+          "type": "n8n-nodes-base.slack",
+          "typeVersion": 2.2,
+          "position": [-2016, 2176],
+          "webhookId": "YOUR_WEBHOOK_ID",
+          "credentials": {
+            "slackApi": {
+              "id": "YOUR_SLACK_CREDENTIAL_ID",
+              "name": "Your Slack Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "operation": "append",
+            "documentId": {
+              "__rl": true,
+              "value": "YOUR_GOOGLE_SHEET_ID",
+              "mode": "list",
+              "cachedResultName": "Lead Re-engagement Tracker",
+              "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+            },
+            "sheetName": {
+              "__rl": true,
+              "value": "ErrorLog",
+              "mode": "list",
+              "cachedResultName": "ErrorLog"
+            },
+            "columns": {
+              "mappingMode": "defineBelow",
+              "value": {
+                "timestamp": "={{ $json.timestamp }}",
+                "workflow_name": "={{ $json.workflow_name }}",
+                "workflow_id": "={{ $json.workflow_id }}",
+                "execution_id": "={{ $json.execution_id }}",
+                "error_node": "={{ $json.error_node }}",
+                "error_message": "={{ $json.error_message }}",
+                "retry_count": "={{ $json.retry_count }}",
+                "status": "Failed - Retries Exhausted"
+              },
+              "matchingColumns": [],
+              "schema": [
+                {"id": "timestamp", "displayName": "timestamp", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "workflow_name", "displayName": "workflow_name", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "workflow_id", "displayName": "workflow_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "execution_id", "displayName": "execution_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "error_node", "displayName": "error_node", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "error_message", "displayName": "error_message", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "retry_count", "displayName": "retry_count", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+                {"id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
+              ],
+              "attemptToConvertTypes": false,
+              "convertFieldsToString": false
+            },
+            "options": {}
+          },
+          "id": "26b6f373-d2eb-444c-8f6a-d56331c4550b",
+          "name": "Log Error to Sheet",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7,
+          "position": [-1808, 2176],
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+              "name": "Your Google Sheets Account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "content": "## ERROR HANDLER WORKFLOW\n\n**Purpose:** Catches errors from other workflows, retries with backoff, and alerts on failure\n\n**Trigger:** Error Trigger (catches errors from linked workflows)\n\n**Retry Logic:**\n- Max retries: 3\n- Backoff: Exponential (5s, 10s, 20s...)\n- Max delay: 60 seconds\n\n**Required:** Create ErrorLog sheet tab with columns:\ntimestamp, workflow_name, workflow_id, execution_id, error_node, error_message, retry_count, status",
+            "height": 464,
+            "width": 340
+          },
+          "id": "f5f95e38-088b-4048-b779-6eb0c54b3c91",
+          "name": "Sticky Note6",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-3152, 1824]
+        },
+        {
+          "parameters": {
+            "content": "## SETUP INSTRUCTIONS\n\nTo use this error handler:\n\n1. Create ErrorLog sheet tab in your Google Sheet\n\n2. In each workflow you want to monitor, go to Settings and set Error Workflow to this workflow\n\n3. Activate this workflow",
+            "height": 312,
+            "width": 280
+          },
+          "id": "673c552a-e923-43be-8bc2-40a97b20ef60",
+          "name": "Sticky Note7",
+          "type": "n8n-nodes-base.stickyNote",
+          "typeVersion": 1,
+          "position": [-2736, 1712]
+        }
+      ],
+      "connections": {
+        "Daily Report (6 PM)": {"main": [[{"node": "Read All Lead Data", "type": "main", "index": 0}]]},
+        "Report Webhook": {"main": [[{"node": "Read All Lead Data", "type": "main", "index": 0}]]},
+        "Read All Lead Data": {"main": [[{"node": "Generate Report Stats", "type": "main", "index": 0}]]},
+        "Generate Report Stats": {"main": [[{"node": "Send Slack Report", "type": "main", "index": 0}]]},
+        "Send Slack Report": {"main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]},
+        "Error Trigger": {"main": [[{"node": "Parse Error Details", "type": "main", "index": 0}]]},
+        "Parse Error Details": {"main": [[{"node": "Should Retry?", "type": "main", "index": 0}]]},
+        "Should Retry?": {"main": [[{"node": "Calculate Backoff", "type": "main", "index": 0}], [{"node": "Slack: Final Error Alert", "type": "main", "index": 0}]]},
+        "Calculate Backoff": {"main": [[{"node": "Wait (Backoff)", "type": "main", "index": 0}]]},
+        "Wait (Backoff)": {"main": [[{"node": "Retry Workflow", "type": "main", "index": 0}]]},
+        "Slack: Final Error Alert": {"main": [[{"node": "Log Error to Sheet", "type": "main", "index": 0}]]}
+      },
+      "pinData": {},
+      "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "YOUR_INSTANCE_ID"
+      }
+    }
+  ],
+  "credentialPlaceholders": {
+    "YOUR_GOOGLE_SHEET_ID": "Your Google Sheets document ID",
+    "YOUR_LEAD_TRACKING_SHEET_GID": "The GID of your LeadTracking sheet tab",
+    "YOUR_SLACK_CHANNEL_ID": "Your Slack channel ID (e.g., C0A2V3QHC30)",
+    "YOUR_SLACK_CREDENTIAL_ID": "n8n Slack credential ID",
+    "YOUR_TWILIO_CREDENTIAL_ID": "n8n Twilio credential ID",
+    "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID": "n8n Google Sheets OAuth credential ID",
+    "YOUR_GEMINI_CREDENTIAL_ID": "n8n Google Gemini/Palm API credential ID",
+    "YOUR_WEBHOOK_ID": "Auto-generated webhook ID by n8n",
+    "YOUR_INSTANCE_ID": "Your n8n instance ID",
+    "+1XXXXXXXXXX": "Your Twilio WhatsApp sandbox or business number"
+  }
+}
